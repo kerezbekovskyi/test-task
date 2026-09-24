@@ -1,192 +1,152 @@
 # Dynamic Tables API
 
-Простой Laravel API для создания динамических таблиц в PostgreSQL и работы с данными через CRUD.
+Laravel API для динамического создания таблиц в PostgreSQL и CRUD-операций с данными.
 
-## Требования
+Проект запускается через Docker Compose. Nginx не используется, Laravel работает через `php artisan serve`.
 
-- PHP 8.2 или выше
+## Что внутри Docker
+
+- PHP 8.2
 - Composer
-- PostgreSQL
+- PostgreSQL 16
+- Laravel
+- Автоматический запуск миграций
 
-## Установка проекта
+## Быстрый запуск
 
-Сначала установите зависимости:
+Скопируйте env для Docker:
+
+```bash
+cp .env.docker.example .env
+```
+
+Запустите проект:
+
+```bash
+docker compose up --build
+```
+
+При первом запуске контейнер сам выполнит:
 
 ```bash
 composer install
-```
-
-Создайте `.env` файл:
-
-```bash
-cp .env.example .env
-```
-
-Сгенерируйте ключ приложения:
-
-```bash
 php artisan key:generate
-```
-
-## Настройка базы данных
-
-Создайте базу данных в PostgreSQL, например:
-
-```sql
-CREATE DATABASE dynamic_tables;
-```
-
-Потом откройте файл `.env` и настройте подключение:
-
-```env
-DB_CONNECTION=pgsql
-DB_HOST=127.0.0.1
-DB_PORT=5432
-DB_DATABASE=dynamic_tables
-DB_USERNAME=postgres
-DB_PASSWORD=your_password
-```
-
-В `DB_USERNAME` и `DB_PASSWORD` укажите свои данные от PostgreSQL.
-
-## Миграции
-
-После настройки базы данных запустите миграции:
-
-```bash
 php artisan migrate
 ```
 
-Эта команда создаст служебные таблицы:
-
-```text
-app_dynamic_table_definitions
-app_dynamic_column_definitions
-```
-
-## Запуск проекта
-
-Запустите локальный сервер:
-
-```bash
-php artisan serve
-```
-
-После запуска API будет доступен по адресу:
+API будет доступен по адресу:
 
 ```text
 http://127.0.0.1:8000
 ```
 
-## Запуск тестов
+## Остановка проекта
+
+Остановить контейнеры:
 
 ```bash
-php artisan test
+docker compose down
 ```
+
+Остановить контейнеры и удалить базу данных:
+
+```bash
+docker compose down -v
+```
+
+## Полезные команды
+
+Зайти внутрь PHP-контейнера:
+
+```bash
+docker compose exec app bash
+```
+
+Запустить миграции:
+
+```bash
+docker compose exec app php artisan migrate
+```
+
+Запустить тесты:
+
+```bash
+docker compose exec app php artisan test
+```
+
+В проекте уже написаны Feature-тесты для основных сценариев:
+
+- создание схемы динамической таблицы;
+- автоматическое добавление `id`;
+- полный CRUD;
+- пагинация;
+- защита от неправильных имен таблиц;
+- проверка неизвестных полей;
+- проверка обязательных полей;
+- проверка дублирующей таблицы;
+- проверка полного `PUT`;
+- проверка `columnCount`.
+
+Очистить кеш:
+
+```bash
+docker compose exec app php artisan optimize:clear
+```
+
+## Настройки базы данных в Docker
+
+В Docker используется PostgreSQL со следующими настройками:
+
+```env
+DB_CONNECTION=pgsql
+DB_HOST=postgres
+DB_PORT=5432
+DB_DATABASE=dynamic_tables
+DB_USERNAME=postgres
+DB_PASSWORD=postgres
+```
+
+Эти настройки уже есть в `.env.docker.example`.
 
 ## Роуты API
 
-### Схемы таблиц
+Базовый URL:
 
-Создать динамическую таблицу:
+```text
+http://127.0.0.1:8000
+```
+
+### Схемы таблиц
 
 ```http
 POST /api/v1/dynamic-tables/schemas
-```
-
-Получить список всех динамических таблиц:
-
-```http
 GET /api/v1/dynamic-tables/schemas
-```
-
-Получить схему одной таблицы:
-
-```http
 GET /api/v1/dynamic-tables/schemas/{tableName}
 ```
 
-### Данные динамических таблиц
-
-Создать запись:
+### Данные таблиц
 
 ```http
 POST /api/v1/dynamic-tables/data/{tableName}
-```
-
-Получить список записей:
-
-```http
 GET /api/v1/dynamic-tables/data/{tableName}
-```
-
-Получить одну запись по ID:
-
-```http
 GET /api/v1/dynamic-tables/data/{tableName}/{id}
-```
-
-Обновить запись:
-
-```http
 PUT /api/v1/dynamic-tables/data/{tableName}/{id}
-```
-
-Удалить запись:
-
-```http
 DELETE /api/v1/dynamic-tables/data/{tableName}/{id}
-```
-
-## Пример создания таблицы
-
-```bash
-curl -X POST http://127.0.0.1:8000/api/v1/dynamic-tables/schemas \
-  -H "Content-Type: application/json" \
-  -d '{
-    "tableName": "contacts_alpha",
-    "userFriendlyName": "Контакты проекта Alpha",
-    "columns": [
-      { "name": "full_name", "type": "TEXT", "isNullable": false },
-      { "name": "email", "type": "TEXT", "isNullable": true },
-      { "name": "age", "type": "INTEGER", "isNullable": true },
-      { "name": "is_active", "type": "BOOLEAN", "isNullable": false }
-    ]
-  }'
-```
-
-## Пример создания записи
-
-```bash
-curl -X POST http://127.0.0.1:8000/api/v1/dynamic-tables/data/contacts_alpha \
-  -H "Content-Type: application/json" \
-  -d '{
-    "full_name": "Арсен Керезбеков",
-    "email": "kerezbekov.dev@gmail.com",
-    "age": 20,
-    "is_active": true
-  }'
-```
-
-## Пример получения списка записей
-
-```bash
-curl "http://127.0.0.1:8000/api/v1/dynamic-tables/data/contacts_alpha?page=0&size=20"
 ```
 
 ## Тела запросов для проверки
 
-Эти JSON можно использовать в Postman, Insomnia или curl.
+Для запросов с JSON укажите header:
 
-### 1. Создание схемы таблицы
+```http
+Content-Type: application/json
+```
 
-Метод:
+### 1. Создать динамическую таблицу
 
 ```http
 POST /api/v1/dynamic-tables/schemas
 ```
-
-Body:
 
 ```json
 {
@@ -222,15 +182,27 @@ Body:
 }
 ```
 
-### 2. Создание записи
+### 2. Получить список таблиц
 
-Метод:
+```http
+GET /api/v1/dynamic-tables/schemas
+```
+
+Body не нужен.
+
+### 3. Получить схему одной таблицы
+
+```http
+GET /api/v1/dynamic-tables/schemas/contacts_alpha
+```
+
+Body не нужен.
+
+### 4. Создать запись
 
 ```http
 POST /api/v1/dynamic-tables/data/contacts_alpha
 ```
-
-Body:
 
 ```json
 {
@@ -242,15 +214,27 @@ Body:
 }
 ```
 
-### 3. Полное обновление записи
+### 5. Получить список записей
 
-Метод:
+```http
+GET /api/v1/dynamic-tables/data/contacts_alpha?page=0&size=20
+```
+
+Body не нужен.
+
+### 6. Получить одну запись
+
+```http
+GET /api/v1/dynamic-tables/data/contacts_alpha/1
+```
+
+Body не нужен.
+
+### 7. Полностью обновить запись
 
 ```http
 PUT /api/v1/dynamic-tables/data/contacts_alpha/1
 ```
-
-Body:
 
 ```json
 {
@@ -264,17 +248,86 @@ Body:
 
 Важно: `PUT` требует полный набор полей таблицы, кроме `id`.
 
-### 4. Запросы без body
-
-Эти запросы выполняются без тела:
+### 8. Удалить запись
 
 ```http
-GET /api/v1/dynamic-tables/schemas
-GET /api/v1/dynamic-tables/schemas/contacts_alpha
-GET /api/v1/dynamic-tables/data/contacts_alpha?page=0&size=20
-GET /api/v1/dynamic-tables/data/contacts_alpha/1
 DELETE /api/v1/dynamic-tables/data/contacts_alpha/1
 ```
+
+Body не нужен.
+
+## Ошибки API
+
+Все ошибки возвращаются в одном JSON-формате:
+
+```json
+{
+  "timestamp": "2026-09-24T10:00:00.000000Z",
+  "status": 400,
+  "error": "Bad Request",
+  "message": "Invalid table name",
+  "path": "/api/v1/dynamic-tables/schemas"
+}
+```
+
+### 400 Bad Request
+
+Возвращается, когда запрос неправильный.
+
+Примеры:
+
+- неправильное имя таблицы;
+- неправильное имя колонки;
+- колонка называется `id`;
+- неизвестный тип колонки;
+- пустой массив `columns`;
+- неизвестное поле при создании записи;
+- не передано обязательное поле;
+- неправильный тип значения, например строка вместо `INTEGER`;
+- в `PUT` передан не полный набор полей.
+
+Пример неправильного body:
+
+```json
+{
+  "tableName": "bad-table-name",
+  "columns": []
+}
+```
+
+### 404 Not Found
+
+Возвращается, когда таблица или запись не найдена.
+
+Примеры:
+
+```http
+GET /api/v1/dynamic-tables/schemas/unknown_table
+GET /api/v1/dynamic-tables/data/contacts_alpha/999
+DELETE /api/v1/dynamic-tables/data/contacts_alpha/999
+```
+
+### 409 Conflict
+
+Возвращается, когда таблица с таким именем уже существует.
+
+Пример:
+
+```http
+POST /api/v1/dynamic-tables/schemas
+```
+
+Если `contacts_alpha` уже создана, повторное создание вернет `409 Conflict`.
+
+### 500 Internal Server Error
+
+Возвращается при неожиданной ошибке сервера или базы данных.
+
+Примеры:
+
+- PostgreSQL недоступен;
+- ошибка подключения к базе;
+- внутренняя ошибка приложения.
 
 ## Поддерживаемые типы колонок
 
@@ -301,4 +354,31 @@ Eloquent удобно использовать, когда таблицы изв
 - значения передаются через безопасные параметры запроса;
 - имена таблиц и колонок проходят строгую валидацию.
 
-Такой подход проще, безопаснее и лучше подходит для этого тестового задания.
+Такой подход проще, безопаснее и лучше подходит для этого задания.
+
+## Если нужно запустить без Docker
+
+Установите зависимости:
+
+```bash
+composer install
+```
+
+Создайте `.env`:
+
+```bash
+cp .env.example .env
+```
+
+Сгенерируйте ключ:
+
+```bash
+php artisan key:generate
+```
+
+Настройте PostgreSQL в `.env`, затем выполните:
+
+```bash
+php artisan migrate
+php artisan serve
+```
